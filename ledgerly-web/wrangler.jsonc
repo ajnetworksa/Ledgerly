@@ -1,0 +1,46 @@
+{
+	"name": "ledgerly-web",
+	"main": "src/worker.js",
+	"compatibility_date": "2025-11-20",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"routes": [
+		{
+			"pattern": "ledgerly.querymind.pro",
+			"zone_name": "querymind.pro",
+			"custom_domain": true
+		}
+	],
+	"observability": {
+		"enabled": true
+	},
+	"containers": [
+		{
+			"class_name": "LedgerlyContainer",
+			"image": "./Dockerfile",
+			"max_instances": 10
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"class_name": "LedgerlyContainer",
+				"name": "LEDGERLY_CONTAINER"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"new_sqlite_classes": [
+				"LedgerlyContainer"
+			],
+			"tag": "v1"
+		}
+	],
+	"vars": {
+		"KTOR_ENV": "production"
+	},
+	"workers_dev": true,
+	"preview_urls": true
+}

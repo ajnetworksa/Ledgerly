@@ -1,0 +1,16 @@
+Turn bank SMS into a clean, searchable money timeline with on-device AI assistance. 100% private, no cloud processing.
+
+Your bank already texts you every transaction — Ledgerly turns those SMS into a private, zero-setup expense tracker with on-device AI. No accounts, no cloud, no effort.
+
+Key Features:
+- 100% On-Device & Private — All AI processing runs locally, no cloud, no servers, no tracking
+- Zero Setup — Just grant SMS permission, no accounts to create, works instantly
+- Free & Open Source — AGPL v3 licensed, no ads, no hidden costs
+- On-Device AI Assistant — Ask "What did I spend on food?" — powered by Qwen 2.5, runs entirely on your phone
+- 90+ Banks Supported across 18 countries with multi-currency capabilities
+- Smart Analytics — Monthly trends, category breakdowns, spending patterns
+- Budget Tracking — Set budgets per category and track progress
+- Subscription Detection — Automatically identifies recurring payments
+- Smart Rules — Auto-categorize transactions with customizable rules
+
+All AI processing happens on your device using Qwen 2.5 — no cloud, no API calls, no data leaving your phone.

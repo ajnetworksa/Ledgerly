@@ -1,0 +1,1405 @@
+package com.ledgerly.tracker.presentation.home
+
+import android.view.HapticFeedbackConstants
+import androidx.activity.ComponentActivity
+import androidx.work.WorkInfo
+import androidx.activity.compose.LocalActivity
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material.icons.Icons
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.delay
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavController
+import com.ledgerly.tracker.R
+import com.ledgerly.tracker.core.Constants
+import com.ledgerly.tracker.data.database.entity.SubscriptionEntity
+import com.ledgerly.tracker.ui.components.BrandIcon
+import com.ledgerly.tracker.ui.components.LedgerlyCard
+import com.ledgerly.tracker.ui.components.cards.LedgerlyCardV2
+import com.ledgerly.tracker.ui.components.LedgerlyEmptyState
+import com.ledgerly.tracker.ui.components.cards.SectionHeaderV2
+import com.ledgerly.tracker.ui.components.SmsParsingProgressDialog
+import com.ledgerly.tracker.ui.components.cards.AccountCarousel
+import com.ledgerly.tracker.ui.components.cards.BudgetCarousel
+import com.ledgerly.tracker.ui.components.cards.GroupCard
+import com.ledgerly.tracker.ui.components.cards.TransactionItem
+import com.ledgerly.tracker.ui.components.skeleton.BalanceCardSkeleton
+import com.ledgerly.tracker.ui.components.skeleton.TransactionItemSkeleton
+import com.ledgerly.tracker.ui.components.spotlightTarget
+import com.ledgerly.tracker.data.preferences.CoverStyle
+import com.ledgerly.tracker.presentation.common.buildProfileAccountKeys
+import com.ledgerly.tracker.ui.components.ProfileFilterDropdown
+import com.ledgerly.tracker.ui.components.profileFilterIcon
+import com.ledgerly.tracker.ui.components.CoverGradientBanner
+import com.ledgerly.tracker.ui.components.CustomTitleTopAppBar
+import com.ledgerly.tracker.ui.components.GreetingCard
+import com.ledgerly.tracker.ui.effects.overScrollVertical
+import com.ledgerly.tracker.ui.effects.rememberOverscrollFlingBehavior
+import com.ledgerly.tracker.ui.theme.*
+import com.ledgerly.tracker.utils.CurrencyFormatter
+import dev.chrisbanes.haze.HazeDefaults
+import dev.chrisbanes.haze.HazeEffectScope
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.launch
+import java.math.BigDecimal
+import java.time.LocalDate
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(
+    viewModel: HomeViewModel = hiltViewModel(),
+    navController: NavController,
+    coverStyle: CoverStyle = CoverStyle.AURORA,
+    blurEffects: Boolean = false,
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToTransactions: () -> Unit = {},
+    onNavigateToTransactionsWithSearch: () -> Unit = {},
+    onNavigateToSubscriptions: () -> Unit = {},
+    onNavigateToBudgets: () -> Unit = {},
+    onNavigateToLoans: () -> Unit = {},
+    onLoanClick: (Long) -> Unit = {},
+    onNavigateToAddScreen: () -> Unit = {},
+    onNavigateToManageAccounts: () -> Unit = {},
+    onTransactionClick: (Long) -> Unit = {},
+    onGroupClick: (Long) -> Unit = {},
+    onTransactionTypeClick: (String?) -> Unit = {},
+    onFabPositioned: (Rect) -> Unit = {}
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val deletedTransaction by viewModel.deletedTransaction.collectAsState()
+    val smsScanWorkInfo by viewModel.smsScanWorkInfo.collectAsState()
+    val activity = LocalActivity.current
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // State for full resync confirmation dialog
+    var showFullResyncDialog by remember { mutableStateOf(false) }
+
+    // Bottom sheet menu state
+    var showMenuSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+
+    // Profile filter dropdown state
+    var showProfileFilterMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    // Haptic feedback
+    val view = LocalView.current
+
+    // Haptic on successful SMS scan completion
+    LaunchedEffect(smsScanWorkInfo?.state) {
+        if (smsScanWorkInfo?.state == WorkInfo.State.SUCCEEDED) {
+            view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+        }
+    }
+
+    // Scroll behaviors for collapsible TopAppBar
+    val scrollBehaviorSmall = TopAppBarDefaults.pinnedScrollBehavior()
+    val scrollBehaviorLarge = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    // Haze state for TopAppBar blur
+    val hazeState = remember { HazeState() }
+
+    // Haze state for banner blur effect
+    val hazeStateBanner = remember { HazeState() }
+
+    // LazyColumn scroll state for overscroll physics
+    val lazyListState = rememberLazyListState()
+
+    // Staggered entrance animation state — only animates on first composition
+    var hasAnimated by rememberSaveable { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val slideOffsetPx = with(density) { 30.dp.roundToPx() }
+
+    // Mark entrance animation as complete after all stagger delays have fired
+    LaunchedEffect(Unit) {
+        if (!hasAnimated) {
+            delay(350) // slightly after the last stagger (300ms)
+            hasAnimated = true
+        }
+    }
+
+    // Check for app updates and reviews when the screen is first displayed
+    LaunchedEffect(Unit) {
+        // Refresh account balances to ensure proper currency conversion
+        viewModel.refreshAccountBalances()
+
+        activity?.let {
+            val componentActivity = it as ComponentActivity
+            
+            // Check for app updates
+            viewModel.checkForAppUpdate(
+                activity = componentActivity,
+                snackbarHostState = snackbarHostState,
+                scope = scope
+            )
+            
+            // Check for in-app review eligibility
+            viewModel.checkForInAppReview(componentActivity)
+        }
+    }
+    
+    // Refresh hidden accounts whenever this screen becomes visible
+    // This ensures changes from ManageAccountsScreen are reflected immediately
+    DisposableEffect(Unit) {
+        viewModel.refreshHiddenAccounts()
+        onDispose { }
+    }
+    
+    // Handle delete undo snackbar
+    LaunchedEffect(deletedTransaction) {
+        deletedTransaction?.let { transaction ->
+            // Clear the state immediately to prevent re-triggering
+            viewModel.clearDeletedTransaction()
+            
+            scope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Transaction deleted",
+                    actionLabel = "Undo",
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    // Pass the transaction directly since state is already cleared
+                    viewModel.undoDeleteTransaction(transaction)
+                }
+            }
+        }
+    }
+    
+    // Clear snackbar when navigating away
+    DisposableEffect(Unit) {
+        onDispose {
+            snackbarHostState.currentSnackbarData?.dismiss()
+        }
+    }
+    
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehaviorLarge.nestedScrollConnection),
+        containerColor = Color.Transparent,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        topBar = {
+            CustomTitleTopAppBar(
+                scrollBehaviorSmall = scrollBehaviorSmall,
+                scrollBehaviorLarge = scrollBehaviorLarge,
+                title = "Ledgerly",
+                isHomeScreen = true,
+                userName = uiState.userName,
+                profileImageUri = uiState.profileImageUri,
+                profileBackgroundColor = uiState.profileBackgroundColor,
+                hazeState = hazeState,
+                blurEffects = blurEffects,
+                actionContent = {
+                    val containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(end = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Business/Personal filter dropdown
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        color = if (blurEffects) containerColor.copy(0.5f) else containerColor,
+                                        shape = CircleShape
+                                    )
+                                    .clickable(
+                                        onClick = { showProfileFilterMenu = true },
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = profileFilterIcon(uiState.profiles, uiState.selectedProfileId),
+                                    contentDescription = "Profile filter",
+                                    tint = MaterialTheme.colorScheme.inverseSurface,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            ProfileFilterDropdown(
+                                expanded = showProfileFilterMenu,
+                                profiles = uiState.profiles,
+                                selectedProfileId = uiState.selectedProfileId,
+                                onProfileSelected = { viewModel.updateSelectedProfile(it) },
+                                onDismiss = { showProfileFilterMenu = false }
+                            )
+                        }
+                        // More options button
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    color = if (blurEffects) containerColor.copy(0.5f) else containerColor,
+                                    shape = CircleShape
+                                )
+                                .clickable(
+                                    onClick = { showMenuSheet = true },
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreHoriz,
+                                contentDescription = "More options",
+                                tint = MaterialTheme.colorScheme.inverseSurface,
+                                modifier = Modifier.size(Dimensions.Icon.medium)
+                            )
+                        }
+                    }
+                },
+                extraInfoCard = {
+                    GreetingCard(
+                        userName = uiState.userName,
+                        profileImageUri = uiState.profileImageUri,
+                        profileBackgroundColor = uiState.profileBackgroundColor,
+                        onAvatarClick = onNavigateToSettings,
+                        onMenuClick = { showMenuSheet = true },
+                        profiles = uiState.profiles,
+                        selectedProfileId = uiState.selectedProfileId,
+                        onProfileSelected = { viewModel.updateSelectedProfile(it) }
+                    )
+                }
+            )
+        }
+    ) { paddingValues ->
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // Banner gradient at y=0 — paints behind the transparent TopAppBar
+        if (coverStyle != CoverStyle.NONE) {
+            CoverGradientBanner(
+                coverStyle = coverStyle,
+                hazeStateBanner = hazeStateBanner,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+            )
+        }
+
+        // LazyColumn scrolls over the banner
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier
+                .fillMaxSize()
+                .hazeSource(hazeState)
+                .overScrollVertical(),
+            flingBehavior = rememberOverscrollFlingBehavior { lazyListState },
+            contentPadding = PaddingValues(
+                top = Dimensions.Padding.content + paddingValues.calculateTopPadding(),
+                bottom = Dimensions.Component.bottomBarHeight + 120.dp // Space for dual FABs (Add + Sync) + bottom nav bar
+            ),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            // 1. Balance Card (0ms delay)
+            item {
+                val visible = remember { mutableStateOf(hasAnimated) }
+                LaunchedEffect(Unit) {
+                    if (!hasAnimated) { delay(0); visible.value = true }
+                }
+                AnimatedVisibility(
+                    visible = visible.value,
+                    enter = fadeIn(tween(300)) + slideInVertically(
+                        initialOffsetY = { slideOffsetPx },
+                        animationSpec = tween(300)
+                    )
+                ) {
+                    if (!uiState.isBalanceReady) {
+                        BalanceCardSkeleton(
+                            modifier = Modifier.padding(horizontal = Dimensions.Padding.content)
+                        )
+                    } else {
+                        com.ledgerly.tracker.ui.components.cards.BalanceCard(
+                            modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                            blurEffects = blurEffects,
+                            hazeState = hazeStateBanner,
+                            userName = uiState.userName,
+                            totalBalance = uiState.totalBalance,
+                            monthlyChange = uiState.monthlyChange,
+                            monthlyChangePercent = uiState.monthlyChangePercent,
+                            currency = uiState.selectedCurrency,
+                            currentMonthIncome = uiState.currentMonthIncome,
+                            currentMonthExpenses = uiState.currentMonthExpenses,
+                            currentMonthTotal = uiState.currentMonthTotal,
+                            balanceHistory = uiState.balanceHistory,
+                            spendingHistory = uiState.spendingHistory,
+                            lastMonthSpendingHistory = uiState.lastMonthSpendingHistory,
+                            lastMonthSpending = uiState.lastMonthExpenses,
+                            availableCurrencies = uiState.availableCurrencies,
+                            isUnifiedMode = uiState.isUnifiedMode,
+                            isBalanceHidden = uiState.isBalanceHidden,
+                            onToggleBalanceVisibility = { viewModel.toggleBalanceVisibility() },
+                            onCurrencyClick = {
+                                // Cycle through currencies when tapped
+                                val currencies = uiState.availableCurrencies
+                                if (currencies.size > 1) {
+                                    val currentIdx = currencies.indexOf(uiState.selectedCurrency)
+                                    val nextIdx = (currentIdx + 1) % currencies.size
+                                    viewModel.selectCurrency(currencies[nextIdx])
+                                }
+                            },
+                            onShowBreakdown = { viewModel.showBreakdownDialog() },
+                            accountBalances = uiState.accountBalances,
+                            creditCards = uiState.creditCards,
+                            totalAvailableCredit = uiState.totalAvailableCredit,
+                            onAccountClick = { bankName, accountLast4 ->
+                                navController.navigate(
+                                    com.ledgerly.tracker.navigation.AccountDetail(
+                                        bankName = bankName,
+                                        accountLast4 = accountLast4
+                                    )
+                                ) { launchSingleTop = true }
+                            }
+                        )
+                    }
+                }
+            }
+
+            // 2. Budget Carousel (50ms delay)
+            uiState.budgetSummary?.let { summary ->
+                item {
+                    val visible = remember { mutableStateOf(hasAnimated) }
+                    LaunchedEffect(Unit) {
+                        if (!hasAnimated) { delay(50); visible.value = true }
+                    }
+                    AnimatedVisibility(
+                        visible = visible.value,
+                        enter = fadeIn(tween(300)) + slideInVertically(
+                            initialOffsetY = { slideOffsetPx },
+                            animationSpec = tween(300)
+                        )
+                    ) {
+                        Column {
+                            SectionHeaderV2(
+                                title = "Budgets",
+                                modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                                action = {
+                                    TextButton(onClick = onNavigateToBudgets) {
+                                        Text("View All")
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(Dimensions.Icon.small)
+                                        )
+                                    }
+                                }
+                            )
+                            BudgetCarousel(
+                                summary = summary,
+                                onClick = onNavigateToBudgets,
+                                onCreateBudget = onNavigateToBudgets,
+                                modifier = Modifier.padding(horizontal = Dimensions.Padding.content)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 2.5. Loans Summary (75ms delay) — only when active loans exist
+            uiState.loanSummary?.let { summary ->
+                item {
+                    val visible = remember { mutableStateOf(hasAnimated) }
+                    LaunchedEffect(Unit) {
+                        if (!hasAnimated) { delay(75); visible.value = true }
+                    }
+                    AnimatedVisibility(
+                        visible = visible.value,
+                        enter = fadeIn(tween(300)) + slideInVertically(
+                            initialOffsetY = { slideOffsetPx },
+                            animationSpec = tween(300)
+                        )
+                    ) {
+                        Column {
+                            SectionHeaderV2(
+                                title = "Loans",
+                                modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                                action = {
+                                    TextButton(onClick = onNavigateToLoans) {
+                                        Text("View All")
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(Dimensions.Icon.small)
+                                        )
+                                    }
+                                }
+                            )
+                            Box(modifier = Modifier.padding(horizontal = Dimensions.Padding.content)) {
+                                ActiveLoansSummaryCard(
+                                    loans = summary.activeLoans,
+                                    totalLentRemaining = summary.totalLentRemaining,
+                                    totalBorrowedRemaining = summary.totalBorrowedRemaining,
+                                    currency = uiState.selectedCurrency,
+                                    onClick = onNavigateToLoans
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Recent Transactions Section (100ms delay)
+            item {
+                val visible = remember { mutableStateOf(hasAnimated) }
+                LaunchedEffect(Unit) {
+                    if (!hasAnimated) { delay(100); visible.value = true }
+                }
+                AnimatedVisibility(
+                    visible = visible.value,
+                    enter = fadeIn(tween(300)) + slideInVertically(
+                        initialOffsetY = { slideOffsetPx },
+                        animationSpec = tween(300)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = Dimensions.Padding.content)) {
+                        SectionHeaderV2(
+                            title = "Recent Transactions",
+                            action = {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Search button
+                                    IconButton(
+                                        onClick = onNavigateToTransactionsWithSearch,
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = "Search transactions",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+
+                                    // View All button
+                                    TextButton(onClick = onNavigateToTransactions) {
+                                        Text("View All")
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(Dimensions.Icon.small)
+                                        )
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
+            if (uiState.isLoading) {
+                item {
+                    Column(
+                        modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                    ) {
+                        repeat(5) {
+                            TransactionItemSkeleton()
+                        }
+                    }
+                }
+            } else if (uiState.recentItems.isEmpty()) {
+                item {
+                    val visible = remember { mutableStateOf(hasAnimated) }
+                    LaunchedEffect(Unit) {
+                        if (!hasAnimated) { delay(150); visible.value = true }
+                    }
+                    AnimatedVisibility(
+                        visible = visible.value,
+                        enter = fadeIn(tween(300)) + slideInVertically(
+                            initialOffsetY = { slideOffsetPx },
+                            animationSpec = tween(300)
+                        )
+                    ) {
+                        LedgerlyEmptyState(
+                            icon = Icons.Default.Sync,
+                            headline = "No transactions yet",
+                            description = "Scan your SMS to get started — we'll find your transactions automatically",
+                            actionLabel = "Scan Now",
+                            onAction = { viewModel.scanSmsMessages() },
+                            modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                            ghostContent = {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                                ) {
+                                    repeat(3) {
+                                        TransactionItemSkeleton()
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            } else {
+                item {
+                    val visible = remember { mutableStateOf(hasAnimated) }
+                    LaunchedEffect(Unit) {
+                        if (!hasAnimated) { delay(150); visible.value = true }
+                    }
+                    AnimatedVisibility(
+                        visible = visible.value,
+                        enter = fadeIn(tween(300)) + slideInVertically(
+                            initialOffsetY = { slideOffsetPx },
+                            animationSpec = tween(300)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                        ) {
+                            val profileAccountKeys = remember(uiState.accountBalances) {
+                                buildProfileAccountKeys(uiState.accountBalances)
+                            }
+                            uiState.recentItems.forEach { item ->
+                                when (item) {
+                                    is HomeRecentItem.SingleTransaction -> TransactionItem(
+                                        transaction = item.transaction,
+                                        convertedAmount = item.convertedAmount,
+                                        displayCurrency = if (uiState.isUnifiedMode) uiState.selectedCurrency else null,
+                                        profileAccountKeys = profileAccountKeys,
+                                        onClick = { onTransactionClick(item.transaction.id) }
+                                    )
+                                    is HomeRecentItem.GroupItem -> GroupCard(
+                                        group = item.group,
+                                        transactions = item.transactions,
+                                        convertedAmounts = item.convertedAmounts,
+                                        displayCurrency = if (uiState.isUnifiedMode) uiState.selectedCurrency else null,
+                                        onClick = { onGroupClick(item.group.id) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. Account Carousel (200ms delay)
+            if (uiState.creditCards.isNotEmpty() || uiState.accountBalances.isNotEmpty()) {
+                item {
+                    val visible = remember { mutableStateOf(hasAnimated) }
+                    LaunchedEffect(Unit) {
+                        if (!hasAnimated) { delay(200); visible.value = true }
+                    }
+                    AnimatedVisibility(
+                        visible = visible.value,
+                        enter = fadeIn(tween(300)) + slideInVertically(
+                            initialOffsetY = { slideOffsetPx },
+                            animationSpec = tween(300)
+                        )
+                    ) {
+                        Column {
+                            SectionHeaderV2(
+                                title = "Bank Accounts",
+                                modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                                action = {
+                                    TextButton(onClick = onNavigateToManageAccounts) {
+                                        Text("Manage")
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(Dimensions.Icon.small)
+                                        )
+                                    }
+                                }
+                            )
+                            AccountCarousel(
+                                modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                                bankAccounts = uiState.accountBalances,
+                                creditCards = uiState.creditCards,
+                                onAccountClick = { bankName, accountLast4 ->
+                                    navController.navigate(
+                                        com.ledgerly.tracker.navigation.AccountDetail(
+                                            bankName = bankName,
+                                            accountLast4 = accountLast4
+                                        )
+                                    ) { launchSingleTop = true }
+                                },
+                                isUnifiedMode = uiState.isUnifiedMode,
+                                selectedCurrency = uiState.selectedCurrency,
+                                blurEffects = blurEffects,
+                                hazeState = hazeStateBanner
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 5. Upcoming Subscriptions Alert (250ms delay)
+            if (uiState.upcomingSubscriptions.isNotEmpty()) {
+                item {
+                    val visible = remember { mutableStateOf(hasAnimated) }
+                    LaunchedEffect(Unit) {
+                        if (!hasAnimated) { delay(250); visible.value = true }
+                    }
+                    AnimatedVisibility(
+                        visible = visible.value,
+                        enter = fadeIn(tween(300)) + slideInVertically(
+                            initialOffsetY = { slideOffsetPx },
+                            animationSpec = tween(300)
+                        )
+                    ) {
+                        Column {
+                            SectionHeaderV2(
+                                title = "Upcoming Subscriptions",
+                                modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                                action = {
+                                    TextButton(onClick = onNavigateToSubscriptions) {
+                                        Text("View All")
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(Dimensions.Icon.small)
+                                        )
+                                    }
+                                }
+                            )
+                            Box(modifier = Modifier.padding(horizontal = Dimensions.Padding.content)) {
+                                UpcomingSubscriptionsCard(
+                                    subscriptions = uiState.upcomingSubscriptions,
+                                    totalAmount = uiState.upcomingSubscriptionsTotal,
+                                    currency = uiState.selectedCurrency,
+                                    onClick = onNavigateToSubscriptions,
+                                    blurEffects = blurEffects,
+                                    hazeState = hazeStateBanner
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 6. Heatmap Widget (300ms delay)
+            item {
+                val visible = remember { mutableStateOf(hasAnimated) }
+                LaunchedEffect(Unit) {
+                    if (!hasAnimated) { delay(300); visible.value = true }
+                }
+                AnimatedVisibility(
+                    visible = visible.value,
+                    enter = fadeIn(tween(300)) + slideInVertically(
+                        initialOffsetY = { slideOffsetPx },
+                        animationSpec = tween(300)
+                    )
+                ) {
+                    Column {
+                        SectionHeaderV2(
+                            title = "Activity",
+                            modifier = Modifier.padding(horizontal = Dimensions.Padding.content)
+                        )
+                        com.ledgerly.tracker.ui.components.cards.HeatmapWidget(
+                            transactionHeatmap = uiState.transactionHeatmap,
+                            modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
+                            blurEffects = blurEffects,
+                            hazeState = hazeStateBanner
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Scan FAB rotation animation
+        val infiniteTransition = rememberInfiniteTransition(label = "scan_rotation")
+        val rotationAngle by animateFloatAsState(
+            targetValue = if (uiState.isScanning) 1f else 0f,
+            animationSpec = tween(300),
+            label = "scan_trigger"
+        )
+        val continuousRotation by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "scan_rotation"
+        )
+        val scanRotation = if (uiState.isScanning) continuousRotation else 0f
+
+        // FABs - Direct access (no speed dial)
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(
+                    end = Dimensions.Padding.content,
+                    bottom = 96.dp
+                ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            // Add FAB (top, small)
+            SmallFloatingActionButton(
+                onClick = onNavigateToAddScreen,
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add Transaction or Subscription"
+                )
+            }
+            
+            // Sync FAB (bottom, primary)
+            // Single tap: incremental scan, Long press: full resync
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .spotlightTarget(onFabPositioned)
+                        .size(56.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { viewModel.scanSmsMessages() },
+                                onLongPress = {
+                                    view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                    showFullResyncDialog = true
+                                }
+                            )
+                        },
+                    shape = FloatingActionButtonDefaults.shape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shadowElevation = 6.dp,
+                    tonalElevation = 6.dp,
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = "Sync SMS (long press for full resync)",
+                            modifier = if (uiState.isScanning) Modifier.rotate(scanRotation) else Modifier,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+                // Hint for long-press functionality - only show for new users (no transactions yet)
+                if (uiState.recentTransactions.isEmpty() && !uiState.isLoading) {
+                    Text(
+                        text = "Hold for full resync",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+        
+        // Full Resync Confirmation Dialog
+        if (showFullResyncDialog) {
+            AlertDialog(
+                onDismissRequest = { showFullResyncDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                title = {
+                    Text("Full Resync")
+                },
+                text = {
+                    Text(
+                        "This will reprocess all SMS messages from scratch. " +
+                        "Use this to fix issues caused by updated bank parsers.\n\n" +
+                        "This may take a few seconds depending on your message history."
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showFullResyncDialog = false
+                            viewModel.scanSmsMessages(forceResync = true)
+                        }
+                    ) {
+                        Text("Resync All")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showFullResyncDialog = false }
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // SMS Parsing Progress Dialog
+        SmsParsingProgressDialog(
+            isVisible = uiState.isScanning,
+            workInfo = smsScanWorkInfo,
+            onDismiss = { viewModel.cancelSmsScan() },
+            onCancel = { viewModel.cancelSmsScan() }
+        )
+        
+        // Breakdown Dialog
+        if (uiState.showBreakdownDialog) {
+            BreakdownDialog(
+                currentMonthIncome = uiState.currentMonthIncome,
+                currentMonthExpenses = uiState.currentMonthExpenses,
+                currentMonthTotal = uiState.currentMonthTotal,
+                lastMonthIncome = uiState.lastMonthIncome,
+                lastMonthExpenses = uiState.lastMonthExpenses,
+                lastMonthTotal = uiState.lastMonthTotal,
+                currency = uiState.selectedCurrency,
+                onDismiss = { viewModel.hideBreakdownDialog() }
+            )
+        }
+    }
+
+    // Avatar menu bottom sheet
+    if (showMenuSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showMenuSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                // Title
+                Text(
+                    text = "More Options",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(bottom = Spacing.sm)
+                        .fillMaxWidth()
+                )
+
+                // Settings (Top)
+                MenuListItem(
+                    headline = "Settings",
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    position = ListItemPosition.Top,
+                    onClick = {
+                        showMenuSheet = false
+                        onNavigateToSettings()
+                    }
+                )
+
+                // Join Discord (Middle)
+                MenuListItem(
+                    headline = "Join Discord for feedback",
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_discord),
+                            contentDescription = null,
+                            modifier = Modifier.size(Dimensions.Icon.medium)
+                        )
+                    },
+                    position = ListItemPosition.Middle,
+                    onClick = {
+                        showMenuSheet = false
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(Constants.Links.DISCORD_URL))
+                        context.startActivity(intent)
+                    }
+                )
+
+                // Rate on Play Store (Bottom)
+                MenuListItem(
+                    headline = "Rate on Play Store",
+                    icon = { Icon(Icons.Default.Star, contentDescription = null) },
+                    position = ListItemPosition.Bottom,
+                    onClick = {
+                        showMenuSheet = false
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${context.packageName}"))
+                            context.startActivity(intent)
+                        } catch (_: android.content.ActivityNotFoundException) {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}"))
+                            context.startActivity(intent)
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Version footer
+                val versionName = remember {
+                    try {
+                        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                versionName?.let {
+                    Text(
+                        text = "v$it",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BreakdownDialog(
+    currentMonthIncome: BigDecimal,
+    currentMonthExpenses: BigDecimal,
+    currentMonthTotal: BigDecimal,
+    lastMonthIncome: BigDecimal,
+    lastMonthExpenses: BigDecimal,
+    lastMonthTotal: BigDecimal,
+    currency: String = "INR",
+    onDismiss: () -> Unit
+) {
+    val now = LocalDate.now()
+    val currentPeriod = "${now.month.name.lowercase().replaceFirstChar { it.uppercase() }} 1-${now.dayOfMonth}"
+    val lastMonth = now.minusMonths(1)
+    val lastPeriod = "${lastMonth.month.name.lowercase().replaceFirstChar { it.uppercase() }} 1-${now.dayOfMonth}"
+    
+    Dialog(onDismissRequest = onDismiss) {
+        LedgerlyCardV2(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.md), // Reduced horizontal padding for wider modal
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            contentPadding = 0.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Dimensions.Padding.card),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                // Title
+                Text(
+                    text = "Calculation Breakdown",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                // Current Period Section
+                Text(
+                    text = currentPeriod,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                BreakdownRow(
+                    label = "Income",
+                    amount = currentMonthIncome,
+                    isIncome = true,
+                    currency = currency
+                )
+
+                BreakdownRow(
+                    label = "Expenses",
+                    amount = currentMonthExpenses,
+                    isIncome = false,
+                    currency = currency
+                )
+
+                HorizontalDivider()
+
+                BreakdownRow(
+                    label = "Net Worth",
+                    amount = currentMonthTotal,
+                    isIncome = currentMonthTotal >= BigDecimal.ZERO,
+                    isBold = true,
+                    currency = currency
+                )
+
+                Spacer(modifier = Modifier.height(Spacing.sm))
+
+                // Last Period Section
+                Text(
+                    text = lastPeriod,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                BreakdownRow(
+                    label = "Income",
+                    amount = lastMonthIncome,
+                    isIncome = true,
+                    currency = currency
+                )
+
+                BreakdownRow(
+                    label = "Expenses",
+                    amount = lastMonthExpenses,
+                    isIncome = false,
+                    currency = currency
+                )
+
+                HorizontalDivider()
+
+                BreakdownRow(
+                    label = "Net Worth",
+                    amount = lastMonthTotal,
+                    isIncome = lastMonthTotal >= BigDecimal.ZERO,
+                    isBold = true,
+                    currency = currency
+                )
+                
+                // Formula explanation
+                Spacer(modifier = Modifier.height(Spacing.sm))
+                LedgerlyCardV2(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = Spacing.sm
+                ) {
+                    Text(
+                        text = "Formula: Income - Expenses = Net Worth\n" +
+                               "Green (+) = Savings | Red (-) = Overspending",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                
+                // Close button
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Close")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BreakdownRow(
+    label: String,
+    amount: BigDecimal,
+    isIncome: Boolean,
+    isBold: Boolean = false,
+    currency: String = "INR"
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal
+        )
+        Text(
+            text = "${if (isIncome) "+" else "-"}${CurrencyFormatter.formatCurrency(amount.abs(), currency)}",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+            color = if (isIncome) {
+                if (!isSystemInDarkTheme()) income_light else income_dark
+            } else {
+                if (!isSystemInDarkTheme()) expense_light else expense_dark
+            }
+        )
+    }
+}
+
+@Composable
+private fun UpcomingSubscriptionsCard(
+    subscriptions: List<SubscriptionEntity>,
+    totalAmount: BigDecimal,
+    currency: String = "INR",
+    onClick: () -> Unit = {},
+    blurEffects: Boolean = false,
+    hazeState: HazeState? = null
+) {
+    val containerColor = if (blurEffects)
+        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+    else MaterialTheme.colorScheme.secondaryContainer
+
+    LedgerlyCardV2(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (blurEffects && hazeState != null) Modifier
+                    .clip(RoundedCornerShape(Dimensions.CornerRadius.large))
+                    .hazeEffect(
+                        state = hazeState,
+                        block = fun HazeEffectScope.() {
+                            style = HazeDefaults.style(
+                                backgroundColor = Color.Transparent,
+                                tint = HazeDefaults.tint(containerColor),
+                                blurRadius = 20.dp,
+                                noiseFactor = -1f,
+                            )
+                            blurredEdgeTreatment = BlurredEdgeTreatment.Unbounded
+                        }
+                    )
+                else Modifier
+            ),
+        onClick = onClick,
+        colors = CardDefaults.cardColors(
+            containerColor = containerColor
+        ),
+        contentPadding = Dimensions.Padding.content
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                if (subscriptions.isNotEmpty()) {
+                    val maxIcons = 4
+                    val visibleSubs = subscriptions.take(maxIcons)
+                    val extraCount = subscriptions.size - maxIcons
+                    Box {
+                        visibleSubs.forEachIndexed { index, sub ->
+                            BrandIcon(
+                                merchantName = sub.merchantName,
+                                size = 32.dp,
+                                modifier = Modifier
+                                    .offset(x = (index * 20).dp)
+                                    .zIndex((maxIcons - index).toFloat())
+                                    .border(
+                                        width = 2.dp,
+                                        color = MaterialTheme.colorScheme.surface,
+                                        shape = CircleShape
+                                    )
+                                    .clip(CircleShape)
+                            )
+                        }
+                        if (extraCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .offset(x = (visibleSubs.size * 20).dp)
+                                    .zIndex(0f)
+                                    .size(32.dp)
+                                    .border(
+                                        width = 2.dp,
+                                        color = MaterialTheme.colorScheme.surface,
+                                        shape = CircleShape
+                                    )
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "+$extraCount",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        // Spacer to reserve the width of the stacked icons
+                        Spacer(
+                            modifier = Modifier
+                                .width(
+                                    ((visibleSubs.size - 1) * 20 + 32 + if (extraCount > 0) 20 else 0).dp
+                                )
+                                .height(32.dp)
+                        )
+                    }
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(Dimensions.Icon.medium)
+                    )
+                }
+                Column {
+                    Text(
+                        text = "${subscriptions.size} active subscriptions",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        text = "Monthly total: ${CurrencyFormatter.formatCurrency(totalAmount, currency)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = Dimensions.Alpha.subtitle)
+                    )
+                }
+            }
+            Text(
+                text = "View",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActiveLoansSummaryCard(
+    loans: List<com.ledgerly.tracker.data.database.entity.LoanEntity>,
+    totalLentRemaining: java.math.BigDecimal,
+    totalBorrowedRemaining: java.math.BigDecimal,
+    currency: String,
+    onClick: () -> Unit = {}
+) {
+    val isDark = isSystemInDarkTheme()
+    val loanColor = if (isDark) loan_dark else loan_light
+
+    LedgerlyCardV2(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Loan icon
+            Icon(
+                imageVector = Icons.Default.SwapHoriz,
+                contentDescription = null,
+                tint = loanColor,
+                modifier = Modifier.size(Dimensions.Icon.medium)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${loans.size} active loan${if (loans.size != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+                val subtitle = when {
+                    totalLentRemaining > java.math.BigDecimal.ZERO && totalBorrowedRemaining > java.math.BigDecimal.ZERO ->
+                        "${CurrencyFormatter.formatCurrency(totalLentRemaining, currency)} owed to you"
+                    totalLentRemaining > java.math.BigDecimal.ZERO ->
+                        "${CurrencyFormatter.formatCurrency(totalLentRemaining, currency)} owed to you"
+                    else ->
+                        "You owe ${CurrencyFormatter.formatCurrency(totalBorrowedRemaining, currency)}"
+                }
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = "View",
+                style = MaterialTheme.typography.labelLarge,
+                color = loanColor,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+private enum class ListItemPosition { Top, Middle, Bottom, Single }
+
+@Composable
+private fun ListItemPosition.toShape(): RoundedCornerShape = when (this) {
+    ListItemPosition.Top -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+    ListItemPosition.Middle -> RoundedCornerShape(4.dp)
+    ListItemPosition.Bottom -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+    ListItemPosition.Single -> RoundedCornerShape(16.dp)
+}
+
+@Composable
+private fun MenuListItem(
+    headline: String,
+    icon: @Composable () -> Unit,
+    position: ListItemPosition,
+    onClick: () -> Unit,
+) {
+    val shape = position.toShape()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dimensions.Padding.content, vertical = 2.dp)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = Dimensions.Padding.content, vertical = Spacing.sm)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CompositionLocalProvider(
+                LocalContentColor provides MaterialTheme.colorScheme.secondary
+            ) { icon() }
+            Text(
+                text = headline,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
