@@ -85,8 +85,8 @@ jobs:
       - name: Get current version
         id: current_version
         run: |
-          CURRENT_VERSION=$(grep 'versionName = ' app/build.gradle.kts | grep -o '"[^"]*"' | tr -d '"')
-          CURRENT_CODE=$(grep 'versionCode = ' app/build.gradle.kts | grep -o '[0-9]*')
+          CURRENT_VERSION=$(grep 'versionName' app/build.gradle.kts | awk -F'"' '{print $2}')
+          CURRENT_CODE=$(grep 'versionCode' app/build.gradle.kts | awk '{print $NF}')
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "code=$CURRENT_CODE" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT_VERSION (code: $CURRENT_CODE)"
@@ -278,7 +278,6 @@ jobs:
           git add app/build.gradle.kts
           git commit -m "chore(release): bump version to ${{ steps.next_version.outputs.version }} [skip ci]"
 
-          # Discard modified tracked files (keystore etc.) and untracked build outputs
           git restore .
           git clean -fd
 
