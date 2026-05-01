@@ -235,7 +235,8 @@ class AddViewModel @Inject constructor(
                     currency = state.currency,
                     receiptPath = receiptPath,
                     budgetCategory = state.budgetCategory,
-                    budgetImpactType = state.budgetImpactType
+                    budgetImpactType = state.budgetImpactType,
+                    splits = if (state.showSplitEditor) state.splits else emptyList()
                 )
 
                 com.ledgerly.tracker.widget.RecentTransactionsWidgetUpdateWorker.enqueueOneShot(appContext)
@@ -376,6 +377,36 @@ class AddViewModel @Inject constructor(
         }
     }
     
+    fun updateSplits(splits: List<com.ledgerly.tracker.ui.components.SplitItem>) {
+        _transactionUiState.update { it.copy(splits = splits) }
+    }
+
+    fun enableSplitMode() {
+        val currentState = _transactionUiState.value
+        val amount = currentState.amount.toBigDecimalOrNull() ?: BigDecimal.ZERO
+        val category = currentState.category.ifBlank { "Others" }
+        
+        val initialSplits = listOf(
+            com.ledgerly.tracker.ui.components.SplitItem(id = 0, category = category, amount = amount),
+            com.ledgerly.tracker.ui.components.SplitItem(id = 0, category = "Others", amount = BigDecimal.ZERO)
+        )
+        
+        _transactionUiState.update { 
+            it.copy(
+                showSplitEditor = true, 
+                splits = initialSplits
+            )
+        }
+    }
+
+    fun removeSplits() {
+        _transactionUiState.update { 
+            it.copy(
+                showSplitEditor = false, 
+                splits = emptyList()
+            )
+        }
+    }
     
     // Validation helpers
     private fun validateAmount(amount: String): String? {
@@ -401,6 +432,14 @@ class AddViewModel @Inject constructor(
             else -> null
         }
     }
+
+    private fun areSplitsValid(state: TransactionUiState): Boolean {
+        if (!state.showSplitEditor) return true
+        if (state.splits.size < 2) return false
+        val totalAmount = state.amount.toBigDecimalOrNull() ?: BigDecimal.ZERO
+        val splitsTotal = state.splits.sumOf { it.amount }
+        return (totalAmount - splitsTotal).abs() <= BigDecimal("0.01")
+    }
 }
 
 // UI State Classes
@@ -425,7 +464,9 @@ data class TransactionUiState(
     val currency: String = "INR",
     val receiptUri: Uri? = null,
     val budgetImpactType: BudgetImpactType? = null,
-    val budgetCategory: String? = null
+    val budgetCategory: String? = null,
+    val splits: List<com.ledgerly.tracker.ui.components.SplitItem> = emptyList(),
+    val showSplitEditor: Boolean = false
 ) {
     val isValid: Boolean
         get() = amount.isNotBlank() &&
@@ -436,7 +477,8 @@ data class TransactionUiState(
                 amountError == null &&
                 merchantError == null &&
                 categoryError == null &&
-                (budgetImpactType == null || budgetCategory != null)
+                (budgetImpactType == null || budgetCategory != null) &&
+                (!showSplitEditor || (splits.size >= 2 && (amount.toBigDecimalOrNull() ?: BigDecimal.ZERO).subtract(splits.sumOf { it.amount }).abs() <= BigDecimal("0.01")))
 }
 
 data class SubscriptionUiState(

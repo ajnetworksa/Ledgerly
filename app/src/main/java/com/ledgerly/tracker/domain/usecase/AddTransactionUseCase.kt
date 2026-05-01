@@ -32,7 +32,8 @@ class AddTransactionUseCase @Inject constructor(
         currency: String = "INR",
         receiptPath: String? = null,
         budgetCategory: String? = null,
-        budgetImpactType: BudgetImpactType? = null
+        budgetImpactType: BudgetImpactType? = null,
+        splits: List<com.ledgerly.tracker.ui.components.SplitItem> = emptyList()
     ) {
         // Generate a unique hash for manual transactions
         val transactionHash = generateManualTransactionHash(
@@ -77,6 +78,19 @@ class AddTransactionUseCase @Inject constructor(
                 date = date,
                 transactionId = transactionId
             )
+        }
+
+        // Handle splits
+        if (transactionId != -1L && splits.isNotEmpty()) {
+            val splitEntities = splits.map { item ->
+                com.ledgerly.tracker.data.database.entity.TransactionSplitEntity(
+                    id = 0,
+                    transactionId = transactionId,
+                    category = item.category,
+                    amount = item.amount
+                )
+            }
+            transactionRepository.saveSplits(transactionId, splitEntities)
         }
         
         // If marked as recurring, create a subscription

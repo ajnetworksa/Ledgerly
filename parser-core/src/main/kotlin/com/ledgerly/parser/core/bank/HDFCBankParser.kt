@@ -309,6 +309,8 @@ class HDFCBankParser : BaseIndianBankParser() {
             lowerMessage.contains("refund") -> TransactionType.INCOME
             lowerMessage.contains("cashback") && !lowerMessage.contains("earn cashback") -> TransactionType.INCOME
 
+            lowerMessage.contains("transfer") -> TransactionType.TRANSFER
+
             else -> null
         }
     }
@@ -464,18 +466,6 @@ class HDFCBankParser : BaseIndianBankParser() {
             return false
         }
 
-
-        // Skip credit card payment confirmations
-        if (lowerMessage.contains("received towards your credit card")) {
-            return false
-        }
-
-        // Skip credit card payment credited notifications
-        if (lowerMessage.contains("payment") &&
-            lowerMessage.contains("credited to your card")
-        ) {
-            return false
-        }
 
         // Skip OTP and promotional messages
         if (lowerMessage.contains("otp") ||

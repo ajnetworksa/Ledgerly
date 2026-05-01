@@ -193,6 +193,8 @@ abstract class BankParser {
             lowerMessage.contains("refund") -> TransactionType.INCOME
             lowerMessage.contains("cashback") && !lowerMessage.contains("earn cashback") -> TransactionType.INCOME
 
+            lowerMessage.contains("transfer") -> TransactionType.TRANSFER
+
             else -> null
         }
     }

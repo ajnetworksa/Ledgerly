@@ -6,7 +6,15 @@ package com.ledgerly.parser.core.bank
 object BankParserFactory {
 
     private val parsers = listOf(
-        HDFCMutualFundParser(),  // HDFC Mutual Fund (must be before HDFCBankParser to avoid interception by HDFC's broad DLT pattern)
+        // Saudi Arabia Banks (Priority)
+        STCBankParser(),
+        RiyadBankParser(),
+        AlRajhiBankParser(),
+        AlinmaBankParser(),
+        SNBAlAhliBankParser(),
+
+        /* Other country banks disabled as per request
+        HDFCMutualFundParser(),
         HDFCBankParser(),
         SBIBankParser(),
         SaraswatBankParser(),
@@ -25,7 +33,7 @@ object BankParserFactory {
         JupiterBankParser(),
         AxisBankParser(),
         PNBBankParser(),
-        PunjabSindBankParser(),  // Punjab & Sind Bank (India)
+        PunjabSindBankParser(),
         CanaraBankParser(),
         BankOfBarodaParser(),
         BankOfIndiaParser(),
@@ -49,64 +57,60 @@ object BankParserFactory {
         AUBankParser(),
         YesBankParser(),
         BandhanBankParser(),
-        ADCBParser(),  // Abu Dhabi Commercial Bank (UAE)
-        FABParser(),  // First Abu Dhabi Bank (UAE)
-        EmiratesNBDParser(),  // Emirates NBD Bank (UAE)
-        LivBankParser(),  // Liv Bank (UAE)
-        CitiBankParser(),  // Citi Bank (USA)
-        DiscoverCardParser(),  // Discover Card (USA)
-        OldHickoryParser(),  // Old Hickory Credit Union (USA)
-        LaxmiBankParser(),  // Laxmi Sunrise Bank (Nepal)
-        CBEBankParser(),  // Commercial Bank of Ethiopia
-        AltanaFCUParser(),  // Altana Federal Credit Union (USA) — must precede EverestBank, which greedily claims numeric senders
-        EverestBankParser(),  // Everest Bank (Nepal)
-        BancolombiaParser(),  // Bancolombia (Colombia)
-        MashreqBankParser(),  // Mashreq Bank (UAE)
-        CharlesSchwabParser(),  // Charles Schwab (USA)
-        NavyFederalParser(),  // Navy Federal Credit Union (USA)
-        AdelFiParser(),  // AdelFi Credit Union (USA)
-        AlecuBankParser(),  // ALECU Credit Union (USA)
-        PriorbankParser(),  // Priorbank (Belarus)
-        AlinmaBankParser(),  // Alinma Bank (Saudi Arabia)
-        NMBBankParser(),  // NMB Bank / Nabil Bank (Nepal)
-        SiddharthaBankParser(),  // Siddhartha Bank Limited (Nepal)
-        PrimeCommercialBankParser(),  // Prime Commercial Bank (Nepal)
-        MPesaTanzaniaParser(),  // M-Pesa Tanzania (must be before Kenya M-PESA)
-        MPESAParser(),  // M-PESA (Kenya)
-        SelcomPesaParser(),  // Selcom Pesa (Tanzania)
-        TigoPesaParser(),  // Tigo Pesa / Mixx by Yas (Tanzania)
-        CIBEgyptParser(),  // CIB - Commercial International Bank (Egypt)
-        DhanlaxmiBankParser(),  // Dhanlaxmi Bank (India)
-        DOPBankParser(),  // Department of Post (India)
-        HuntingtonBankParser(),  // Huntington Bank (USA)
-        StandardCharteredBankParser(),  // Standard Chartered Bank (India and Pakistan)
-        EquitasBankParser(),  // Equitas Small Finance Bank (India)
-        TelebirrParser(),  // Telebirr (Ethiopia)
-        ZemenBankParser(),  // Zemen Bank (Ethiopia)
-        DashenBankParser(),  // Dashen Bank (Ethiopia)
-        FaysalBankParser(),  // Faysal Bank (Pakistan)
-        MelliBankParser(),  // Melli Bank (Iran)
-        ParsianBankParser(),  // Parsian Bank (Iran)
-        BangkokBankParser(),  // Bangkok Bank (Thailand)
-        KasikornBankParser(),  // Kasikorn Bank (Thailand)
-        SiamCommercialBankParser(),  // Siam Commercial Bank (Thailand)
-        KrungThaiBankParser(),  // Krungthai Bank (Thailand)
-        KrungsriBankParser(),  // Krungsri / Bank of Ayudhya (Thailand)
-        TTBBankParser(),  // TMBThanachart Bank (Thailand)
-        GSBBankParser(),  // Government Savings Bank (Thailand)
-        BAACBankParser(),  // BAAC (Thailand)
-        UOBThailandParser(),  // UOB Thailand
-        CIMBThaiParser(),  // CIMB Thai (Thailand)
-        KTCCreditCardParser(),  // KTC Credit Card (Thailand)
-        TBankParser(),  // T-Bank / Tinkoff (Russia)
-        ChaseBankParser(),  // Chase Bank (USA)
-        AlRajhiBankParser(),  // Al Rajhi Bank (Saudi Arabia)
-        SNBAlAhliBankParser(),  // Saudi National Bank / Al Ahli Bank (Saudi Arabia)
-        STCBankParser(),  // STC Bank (Saudi Arabia)
-        MBankCZParser(),  // mBank CZ (Czech Republic)
-        BankMuscatParser(),  // Bank Muscat (Oman)
-        GreaterBankParser()  // Greater Bank (India)
-        // Add more bank parsers here as we implement them
+        ADCBParser(),
+        FABParser(),
+        EmiratesNBDParser(),
+        LivBankParser(),
+        CitiBankParser(),
+        DiscoverCardParser(),
+        OldHickoryParser(),
+        LaxmiBankParser(),
+        CBEBankParser(),
+        AltanaFCUParser(),
+        EverestBankParser(),
+        BancolombiaParser(),
+        MashreqBankParser(),
+        CharlesSchwabParser(),
+        NavyFederalParser(),
+        AdelFiParser(),
+        AlecuBankParser(),
+        PriorbankParser(),
+        NMBBankParser(),
+        SiddharthaBankParser(),
+        PrimeCommercialBankParser(),
+        MPesaTanzaniaParser(),
+        MPESAParser(),
+        SelcomPesaParser(),
+        TigoPesaParser(),
+        CIBEgyptParser(),
+        DhanlaxmiBankParser(),
+        DOPBankParser(),
+        HuntingtonBankParser(),
+        StandardCharteredBankParser(),
+        EquitasBankParser(),
+        TelebirrParser(),
+        ZemenBankParser(),
+        DashenBankParser(),
+        FaysalBankParser(),
+        MelliBankParser(),
+        ParsianBankParser(),
+        BangkokBankParser(),
+        KasikornBankParser(),
+        SiamCommercialBankParser(),
+        KrungThaiBankParser(),
+        KrungsriBankParser(),
+        TTBBankParser(),
+        GSBBankParser(),
+        BAACBankParser(),
+        UOBThailandParser(),
+        CIMBThaiParser(),
+        KTCCreditCardParser(),
+        TBankParser(),
+        ChaseBankParser(),
+        MBankCZParser(),
+        BankMuscatParser(),
+        GreaterBankParser()
+        */
     )
 
     /**

@@ -819,16 +819,29 @@ object SharedCategoryMapping {
      * Handles income-specific logic (salary, refund, cashback, interest, dividend).
      */
     fun determineCategory(merchantName: String, transactionType: String): String {
+        val merchantLower = merchantName.lowercase()
+
+        // Income-specific logic
         if (transactionType == "INCOME") {
-            val merchantLower = merchantName.lowercase()
             return when {
-                merchantLower.contains("salary") -> "Salary"
-                merchantLower.contains("refund") -> "Refunds"
-                merchantLower.contains("cashback") -> "Cashback"
+                merchantLower.contains("salary") || merchantLower.contains("payroll") -> "Salary"
+                merchantLower.contains("refund") || merchantLower.contains("reversal") -> "Refunds"
+                merchantLower.contains("cashback") || merchantLower.contains("cash back") -> "Cashback"
                 merchantLower.contains("interest") -> "Interest"
                 merchantLower.contains("dividend") -> "Dividends"
                 else -> "Income"
             }
+        }
+
+        // Credit card charges — always Shopping by default, but try merchant lookup first
+        if (transactionType == "CREDIT") {
+            val merchantCategory = getCategory(merchantName)
+            return if (merchantCategory != "Others") merchantCategory else "Shopping"
+        }
+
+        // Transfer — always Banking
+        if (transactionType == "TRANSFER") {
+            return "Banking"
         }
 
         return getCategory(merchantName)

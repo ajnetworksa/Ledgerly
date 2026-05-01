@@ -125,6 +125,9 @@ fun LedgerlyNavHost(
                 onNavigateToBudgets = {
                     navController.navigate(BudgetGroups) { launchSingleTop = true }
                 },
+                onNavigateToSavingsGoals = {
+                    navController.navigate(SavingsGoals) { launchSingleTop = true }
+                },
                 onNavigateToExchangeRates = {
                     navController.navigate(ExchangeRates) { launchSingleTop = true }
                 },
@@ -313,6 +316,19 @@ fun LedgerlyNavHost(
                     navController.navigate(TransactionsWithFilter(category, yearMonth, currency)) {
                         launchSingleTop = true
                     }
+                }
+            )
+        }
+
+        composable<SavingsGoals>(
+            enterTransition = { fadeIn(tween(300)) + slideInVertically { it / 4 } },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(300)) },
+            popExitTransition = { fadeOut(tween(200)) + slideOutVertically { it / 4 } }
+        ) {
+            com.ledgerly.tracker.presentation.goals.SavingsGoalsScreen(
+                onNavigateBack = {
+                    navController.safePopBackStack()
                 }
             )
         }

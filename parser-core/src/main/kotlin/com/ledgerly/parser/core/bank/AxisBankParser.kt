@@ -226,14 +226,6 @@ class AxisBankParser : BaseIndianBankParser() {
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Skip Axis-specific payment confirmation messages (payment TO card, not spending)
-        if (lowerMessage.contains("payment") &&
-            lowerMessage.contains("has been received") &&
-            lowerMessage.contains("towards your axis bank")
-        ) {
-            return false
-        }
-
         // Base class handles common payment reminders and other non-transaction messages
         return super.isTransactionMessage(message)
     }

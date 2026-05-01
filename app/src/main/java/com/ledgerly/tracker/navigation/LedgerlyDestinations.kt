@@ -61,6 +61,9 @@ object ExchangeRates
 object BudgetGroups
 
 @Serializable
+object SavingsGoals
+
+@Serializable
 data class BudgetGroupEdit(val groupId: Long = -1L)
 
 @Serializable
