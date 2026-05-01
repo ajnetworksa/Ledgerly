@@ -46,7 +46,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # Removed branch restriction — workflow can be triggered from any branch manually
 
     permissions:
       contents: write
