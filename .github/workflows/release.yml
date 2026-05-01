@@ -85,8 +85,10 @@ jobs:
       - name: Get current version
         id: current_version
         run: |
-          CURRENT_VERSION=$(grep 'versionName' app/build.gradle.kts | awk -F'"' '{print $2}')
-          CURRENT_CODE=$(grep 'versionCode' app/build.gradle.kts | awk '{print $NF}')
+          # Use awk to scan only the first matching line with exactly 8-space indent
+          # This skips versionNameSuffix, val versionCode, and file(...) lines
+          CURRENT_VERSION=$(awk '/^        versionName = "/{match($0, /"([^"]+)"/, a); print a[1]; exit}' app/build.gradle.kts)
+          CURRENT_CODE=$(awk '/^        versionCode = [0-9]+/{match($0, /[0-9]+$/, a); print a[0]; exit}' app/build.gradle.kts)
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "code=$CURRENT_CODE" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT_VERSION (code: $CURRENT_CODE)"
@@ -185,11 +187,15 @@ jobs:
       - name: Update version in build.gradle.kts
         if: ${{ !inputs.dry_run }}
         run: |
-          sed -i "s/versionName = \".*\"/versionName = \"${{ steps.next_version.outputs.version }}\"/" app/build.gradle.kts
-          sed -i "s/versionCode = [0-9]*/versionCode = ${{ steps.next_version.outputs.code }}/" app/build.gradle.kts
+          # Update defaultConfig versionName (8-space indent)
+          sed -i 's/^        versionName = ".*"/        versionName = "${{ steps.next_version.outputs.version }}"/' app/build.gradle.kts
+          # Update defaultConfig versionCode (8-space indent)
+          sed -i 's/^        versionCode = [0-9]*/        versionCode = ${{ steps.next_version.outputs.code }}/' app/build.gradle.kts
+          # Update hardcoded val versionCode in copyChangelog task (4-space indent)
+          sed -i 's/^    val versionCode = [0-9]*/    val versionCode = ${{ steps.next_version.outputs.code }}/' app/build.gradle.kts
 
           echo "Updated build.gradle.kts:"
-          grep "version" app/build.gradle.kts
+          grep -E 'versionName|versionCode' app/build.gradle.kts
 
       - name: Decode Keystore
         if: ${{ !inputs.dry_run }}
