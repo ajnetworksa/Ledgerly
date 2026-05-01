@@ -82,6 +82,7 @@ fun SettingsScreen(
     onNavigateToFaq: () -> Unit = {},
     onNavigateToRules: () -> Unit = {},
     onNavigateToBudgets: () -> Unit = {},
+    onNavigateToSavingsGoals: () -> Unit = {},
     onNavigateToLoans: () -> Unit = {},
     onNavigateToTransactionGroups: () -> Unit = {},
     onNavigateToExchangeRates: () -> Unit = {},
@@ -326,6 +327,15 @@ fun SettingsScreen(
                     title = "Budgets",
                     subtitle = "Track spending limits by category",
                     onClick = onNavigateToBudgets,
+                    position = ItemPosition.MIDDLE
+                )
+                SettingsNavItem(
+                    icon = Icons.Default.Savings,
+                    iconBgColor = amber_light,
+                    iconTint = amber_dark,
+                    title = "Savings Goals",
+                    subtitle = "Track sinking funds and targets",
+                    onClick = onNavigateToSavingsGoals,
                     position = ItemPosition.MIDDLE
                 )
                 SettingsNavItem(
@@ -786,7 +796,10 @@ private fun SettingsNavItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .clickable(onClick = {
+                    Log.d("SettingsScreen", "Item clicked: $title")
+                    onClick()
+                })
                 .padding(horizontal = Spacing.md, vertical = Spacing.md),
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             verticalAlignment = Alignment.CenterVertically

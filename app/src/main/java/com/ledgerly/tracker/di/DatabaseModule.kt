@@ -23,6 +23,7 @@ import com.ledgerly.tracker.data.database.dao.SubscriptionDao
 import com.ledgerly.tracker.data.database.dao.TransactionDao
 import com.ledgerly.tracker.data.database.dao.TransactionSplitDao
 import com.ledgerly.tracker.data.database.dao.UnrecognizedSmsDao
+import com.ledgerly.tracker.data.database.dao.SavingsGoalDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -267,6 +268,12 @@ object DatabaseModule {
     @Singleton
     fun provideProfileDao(database: LedgerlyDatabase): ProfileDao {
         return database.profileDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSavingsGoalDao(database: LedgerlyDatabase): SavingsGoalDao {
+        return database.savingsGoalDao()
     }
 }
 

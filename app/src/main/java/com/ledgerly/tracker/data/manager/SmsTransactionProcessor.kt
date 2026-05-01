@@ -262,7 +262,13 @@ class SmsTransactionProcessor @Inject constructor(
                 parsedTransaction.balance != null -> parsedTransaction.balance!!
                 isCreditCard -> {
                     val currentBalance = existingAccount?.balance ?: BigDecimal.ZERO
-                    currentBalance + parsedTransaction.amount
+                    val txType = parsedTransaction.type.toEntityType()
+                    when (txType) {
+                        // Payment received on card / refund → reduces outstanding balance
+                        TransactionType.INCOME -> (currentBalance - parsedTransaction.amount).max(BigDecimal.ZERO)
+                        // Spending / charge → increases outstanding balance
+                        else -> currentBalance + parsedTransaction.amount
+                    }
                 }
                 existingAccount?.isCreditCard == true && parsedTransaction.type.toEntityType() == TransactionType.INCOME -> {
                     val currentBalance = existingAccount.balance ?: BigDecimal.ZERO
@@ -281,9 +287,9 @@ class SmsTransactionProcessor @Inject constructor(
                             (currentBalance - parsedTransaction.amount).max(BigDecimal.ZERO)
                         }
                         TransactionType.CREDIT, TransactionType.TRANSFER -> {
-                            // Keep existing balance for transfers (complex logic needed)
-                            // Credit should be handled above, this is fallback
-                            currentBalance
+                            // TRANSFER: money leaving this account (debit)
+                            // CREDIT: card charge — increases outstanding balance
+                            (currentBalance - parsedTransaction.amount).max(BigDecimal.ZERO)
                         }
                     }
                 }

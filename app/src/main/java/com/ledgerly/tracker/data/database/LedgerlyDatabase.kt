@@ -48,6 +48,8 @@ import com.ledgerly.tracker.data.database.entity.SubscriptionEntity
 import com.ledgerly.tracker.data.database.entity.TransactionEntity
 import com.ledgerly.tracker.data.database.entity.TransactionSplitEntity
 import com.ledgerly.tracker.data.database.entity.UnrecognizedSmsEntity
+import com.ledgerly.tracker.data.database.entity.SavingsGoalEntity
+import com.ledgerly.tracker.data.database.dao.SavingsGoalDao
 
 /**
  * The Ledgerly Room database.
@@ -60,8 +62,8 @@ import com.ledgerly.tracker.data.database.entity.UnrecognizedSmsEntity
  * @property autoMigrations List of automatic migrations between versions.
  */
 @Database(
-    entities = [TransactionEntity::class, SubscriptionEntity::class, ChatMessage::class, MerchantMappingEntity::class, CategoryEntity::class, AccountBalanceEntity::class, UnrecognizedSmsEntity::class, CardEntity::class, RuleEntity::class, RuleApplicationEntity::class, ExchangeRateEntity::class, BudgetEntity::class, BudgetCategoryEntity::class, BudgetMonthSnapshotEntity::class, BudgetCategoryMonthSnapshotEntity::class, TransactionSplitEntity::class, BankNotificationEntity::class, LoanEntity::class, TransactionGroupEntity::class, ProfileEntity::class],
-    version = 46,
+    entities = [TransactionEntity::class, SubscriptionEntity::class, ChatMessage::class, MerchantMappingEntity::class, CategoryEntity::class, AccountBalanceEntity::class, UnrecognizedSmsEntity::class, CardEntity::class, RuleEntity::class, RuleApplicationEntity::class, ExchangeRateEntity::class, BudgetEntity::class, BudgetCategoryEntity::class, BudgetMonthSnapshotEntity::class, BudgetCategoryMonthSnapshotEntity::class, TransactionSplitEntity::class, BankNotificationEntity::class, LoanEntity::class, TransactionGroupEntity::class, ProfileEntity::class, SavingsGoalEntity::class],
+    version = 47,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -103,8 +105,9 @@ import com.ledgerly.tracker.data.database.entity.UnrecognizedSmsEntity
         AutoMigration(from = 40, to = 41),
         AutoMigration(from = 41, to = 42),
         AutoMigration(from = 42, to = 43),
-        AutoMigration(from = 43, to = 44, spec = Migration43To44::class)
+        AutoMigration(from = 43, to = 44, spec = Migration43To44::class),
         // 44→45 and 45→46 are manual migrations registered in DatabaseModule (add profile_id columns)
+        AutoMigration(from = 46, to = 47)
     ]
 )
 @TypeConverters(Converters::class)
@@ -127,6 +130,7 @@ abstract class LedgerlyDatabase : RoomDatabase() {
     abstract fun transactionGroupDao(): TransactionGroupDao
     abstract fun budgetSnapshotDao(): BudgetSnapshotDao
     abstract fun profileDao(): ProfileDao
+    abstract fun savingsGoalDao(): SavingsGoalDao
 
     companion object {
         const val DATABASE_NAME = "ledgerly_database"
@@ -153,7 +157,9 @@ abstract class LedgerlyDatabase : RoomDatabase() {
                         MIGRATION_20_21,
                         MIGRATION_21_22,
                         MIGRATION_22_23,
-                        MIGRATION_38_39
+                        MIGRATION_38_39,
+                        MIGRATION_44_45,
+                        MIGRATION_45_46
                     )
                     .build()
                 INSTANCE = instance

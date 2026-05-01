@@ -37,6 +37,7 @@ import com.ledgerly.tracker.domain.model.getAccountType
 import com.ledgerly.tracker.presentation.accounts.AccountType
 import com.ledgerly.tracker.ui.theme.*
 import com.ledgerly.tracker.utils.CurrencyFormatter
+import java.math.BigDecimal
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -135,7 +136,8 @@ fun TransactionTabContent(
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     shape = fullShape,
-                    colors = filledFieldColors()
+                    colors = filledFieldColors(),
+                    readOnly = uiState.showSplitEditor
                 )
             }
 
@@ -396,47 +398,97 @@ fun TransactionTabContent(
                     }
                 }
 
-                // Category field
-                ExposedDropdownMenuBox(
-                    expanded = showCategoryMenu,
-                    onExpandedChange = { showCategoryMenu = it },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    TextField(
-                        value = uiState.category,
-                        onValueChange = {},
-                        label = { Text("Category", fontWeight = FontWeight.SemiBold) },
-                        readOnly = true,
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                        shape = bottomShape,
-                        leadingIcon = {
-                            Icon(Icons.Default.Category, contentDescription = null)
-                        },
-                        trailingIcon = {
-                            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
-                        },
-                        isError = uiState.categoryError != null,
-                        supportingText = uiState.categoryError?.let { { Text(it) } },
-                        colors = filledFieldColors()
-                    )
-
-                    ExposedDropdownMenu(
+                // Category field (only show if not using splits)
+                if (!uiState.showSplitEditor) {
+                    ExposedDropdownMenuBox(
                         expanded = showCategoryMenu,
-                        onDismissRequest = { showCategoryMenu = false }
+                        onExpandedChange = { showCategoryMenu = it },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        categories.forEach { category ->
-                            DropdownMenuItem(
-                                text = { Text(category.name) },
-                                onClick = {
-                                    viewModel.updateTransactionCategory(category.name)
-                                    showCategoryMenu = false
-                                }
-                            )
+                        TextField(
+                            value = uiState.category,
+                            onValueChange = {},
+                            label = { Text("Category", fontWeight = FontWeight.SemiBold) },
+                            readOnly = true,
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            shape = bottomShape,
+                            leadingIcon = {
+                                Icon(Icons.Default.Category, contentDescription = null)
+                            },
+                            trailingIcon = {
+                                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
+                            },
+                            isError = uiState.categoryError != null,
+                            supportingText = uiState.categoryError?.let { { Text(it) } },
+                            colors = filledFieldColors()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = showCategoryMenu,
+                            onDismissRequest = { showCategoryMenu = false }
+                        ) {
+                            categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category.name) },
+                                    onClick = {
+                                        viewModel.updateTransactionCategory(category.name)
+                                        showCategoryMenu = false
+                                    }
+                                )
+                            }
                         }
                     }
+                } else {
+                    // Empty space or indicator when splits are active
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                shape = bottomShape
+                            )
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Categories managed in splits",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            // Split button and editor
+            if (uiState.transactionType == TransactionType.EXPENSE) {
+                if (!uiState.showSplitEditor) {
+                    OutlinedButton(
+                        onClick = { viewModel.enableSplitMode() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = uiState.amount.toDoubleOrNull() != null && uiState.amount.toDouble() > 0
+                    ) {
+                        Icon(
+                            Icons.Default.CallSplit,
+                            contentDescription = null,
+                            modifier = Modifier.size(Dimensions.Icon.small)
+                        )
+                        Spacer(modifier = Modifier.width(Spacing.xs))
+                        Text("Split amount")
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(Spacing.sm))
+                    com.ledgerly.tracker.ui.components.SplitEditor(
+                        totalAmount = uiState.amount.toBigDecimalOrNull() ?: BigDecimal.ZERO,
+                        currency = uiState.currency,
+                        splits = uiState.splits,
+                        availableCategories = categories.map { it.name },
+                        onSplitsChanged = { viewModel.updateSplits(it) },
+                        onRemoveSplits = { viewModel.removeSplits() },
+                        modifier = Modifier.padding(horizontal = 0.dp)
+                    )
                 }
             }
 
