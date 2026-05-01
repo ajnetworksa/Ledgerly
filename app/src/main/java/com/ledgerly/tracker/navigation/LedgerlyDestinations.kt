@@ -46,6 +46,9 @@ object UnrecognizedSms
 object Faq
 
 @Serializable
+object RequestBank
+
+@Serializable
 object Rules
 
 @Serializable
