@@ -21,8 +21,8 @@ android {
         applicationId = "com.ledgerly.tracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 88
-        versionName = "2.15.53"
+        versionCode = 91
+        versionName = "2.15.55"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
