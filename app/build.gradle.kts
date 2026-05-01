@@ -21,8 +21,8 @@ android {
         applicationId = "com.ledgerly.tracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 88
-        versionName = "2.15.53"
+        versionCode = 89
+        versionName = "2.15.54"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -171,7 +171,7 @@ ksp {
 val generatedAssetsDir = layout.buildDirectory.dir("generated/assets/changelog")
 
 tasks.register<Copy>("copyChangelog") {
-    val versionCode = android.defaultConfig.versionCode
+    val versionCode = 89
     val changelogDir = rootProject.file("fastlane/metadata/android/en-US/changelogs")
     val changelogFile = file("$changelogDir/$versionCode.txt")
     val defaultFile = file("$changelogDir/default.txt")
