@@ -24,7 +24,6 @@ test_results.txt
 *.log
 *.ctxt
 .mtj.tmp/
-*.jar
 *.war
 *.nar
 *.ear
