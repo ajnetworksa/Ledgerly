@@ -197,28 +197,20 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > app/release.keystore
-          echo "✅ Release keystore created"
+          echo "✅ Release keystore created at: ${{ github.workspace }}/app/release.keystore"
 
       - name: Build Release APKs
         if: ${{ !inputs.dry_run }}
         env:
+          KEYSTORE_PATH: ${{ github.workspace }}/app/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -f "app/release.keystore" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
-            echo "Building signed standard release APK..."
-            ./gradlew assembleStandardRelease \
-              -Pandroid.injected.signing.store.file=${{ github.workspace }}/app/release.keystore \
-              -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
-              -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
-              -Pandroid.injected.signing.key.password=$KEY_PASSWORD
-          else
-            echo "Building unsigned standard release APK..."
-            ./gradlew assembleStandardRelease
-          fi
+          echo "Building signed standard release APK..."
+          ./gradlew assembleStandardRelease
 
-          echo "Building F-Droid release APK..."
+          echo "Building F-Droid release APK (unsigned)..."
           ./gradlew assembleFdroidRelease
 
       - name: Rename APKs
@@ -286,8 +278,7 @@ jobs:
           git add app/build.gradle.kts
           git commit -m "chore(release): bump version to ${{ steps.next_version.outputs.version }} [skip ci]"
 
-          # Discard ALL unstaged changes (modified tracked files like keystore) and
-          # remove untracked files/dirs (build outputs) so rebase can proceed cleanly
+          # Discard modified tracked files (keystore etc.) and untracked build outputs
           git restore .
           git clean -fd
 
@@ -335,16 +326,13 @@ jobs:
       - name: Build App Bundle for Play Store
         if: ${{ !inputs.dry_run && inputs.upload_to_play_store }}
         env:
+          KEYSTORE_PATH: ${{ github.workspace }}/app/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           echo "Building signed App Bundle for Play Store..."
-          ./gradlew bundleStandardRelease \
-            -Pandroid.injected.signing.store.file=${{ github.workspace }}/app/release.keystore \
-            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
-            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
-            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+          ./gradlew bundleStandardRelease
 
           AAB_PATH="app/build/outputs/bundle/standardRelease"
           mv "$AAB_PATH/app-standard-release.aab" \
