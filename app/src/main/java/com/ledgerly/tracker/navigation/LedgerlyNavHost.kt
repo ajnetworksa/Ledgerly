@@ -133,6 +133,9 @@ fun LedgerlyNavHost(
                 },
                 onNavigateToTransactionGroups = {
                     navController.navigate(TransactionGroups) { launchSingleTop = true }
+                },
+                onNavigateToRequestBank = {
+                    navController.navigate(RequestBank) { launchSingleTop = true }
                 }
             )
         }
@@ -206,6 +209,19 @@ fun LedgerlyNavHost(
             popExitTransition = { fadeOut(tween(200)) + slideOutVertically { it / 4 } }
         ) {
             com.ledgerly.tracker.ui.screens.settings.FAQScreen(
+                onNavigateBack = {
+                    navController.safePopBackStack()
+                }
+            )
+        }
+
+        composable<RequestBank>(
+            enterTransition = { fadeIn(tween(300)) + slideInVertically { it / 4 } },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(300)) },
+            popExitTransition = { fadeOut(tween(200)) + slideOutVertically { it / 4 } }
+        ) {
+            com.ledgerly.tracker.ui.screens.settings.RequestBankScreen(
                 onNavigateBack = {
                     navController.safePopBackStack()
                 }

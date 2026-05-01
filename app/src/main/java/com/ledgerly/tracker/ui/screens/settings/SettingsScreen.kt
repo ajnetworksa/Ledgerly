@@ -87,6 +87,7 @@ fun SettingsScreen(
     onNavigateToExchangeRates: () -> Unit = {},
     onNavigateToAppearance: () -> Unit = {},
     onNavigateToImportStatement: () -> Unit = {},
+    onNavigateToRequestBank: () -> Unit = {},
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     appLockViewModel: com.ledgerly.tracker.ui.viewmodel.AppLockViewModel = hiltViewModel(),
     permissionViewModel: com.ledgerly.tracker.ui.viewmodel.PermissionViewModel = hiltViewModel()
@@ -451,6 +452,15 @@ fun SettingsScreen(
                     subtitle = "Frequently asked questions and help",
                     onClick = onNavigateToFaq,
                     position = ItemPosition.TOP
+                )
+                SettingsNavItem(
+                    icon = Icons.Default.AccountBalance,
+                    iconBgColor = teal_light,
+                    iconTint = teal_dark,
+                    title = "Request Unsupported Bank",
+                    subtitle = "Ask developers to add your bank",
+                    onClick = onNavigateToRequestBank,
+                    position = ItemPosition.MIDDLE
                 )
                 SettingsNavItem(
                     icon = Icons.Default.BugReport,
