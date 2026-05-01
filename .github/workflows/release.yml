@@ -286,7 +286,9 @@ jobs:
           git add app/build.gradle.kts
           git commit -m "chore(release): bump version to ${{ steps.next_version.outputs.version }} [skip ci]"
 
-          # Clean untracked build artifacts so rebase doesn't fail
+          # Discard ALL unstaged changes (modified tracked files like keystore) and
+          # remove untracked files/dirs (build outputs) so rebase can proceed cleanly
+          git restore .
           git clean -fd
 
           git pull origin main --rebase
